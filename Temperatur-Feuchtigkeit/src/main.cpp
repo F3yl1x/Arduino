@@ -1,7 +1,8 @@
 #include <Arduino.h>
+#include <../lib/DHT-sensor-library/DHT.h>
 
 ////////////////////////////// I/O
-const int sensor = 1;
+#define DHTPIN 1
 const int a = 2;
 const int b = 3;
 const int c = 4;
@@ -19,7 +20,9 @@ const int c4 = 13;
 unsigned long timer_display = 0;
 int display_wo = 1;
 unsigned long timer_messen = 0;
-int feuchtigkeit;
+int messwert = 0;
+char messung = 't';
+
 
 ////////////////////////////// Konstanten
 const byte b0 = 0b00111111; //Welche Segmente für welche Zahl angeschaltet werden müssen, hier 0
@@ -36,11 +39,14 @@ const byte b9 = 0b01101111;
 ////////////////////////////// Funktionen
 void setDigit(int com, int zahl, bool punkt); //einzelnes Digit setzen
 void setDisplay(int zahl); // bis 4 stellig Zahl ausgeben
+#define DHTTYPE DHT11   // DHT 11
+DHT dht(DHTPIN, DHTTYPE);
+int messen();
 
 
 
-void setup() {
-  pinMode(sensor,INPUT);
+void setup() 
+{
   pinMode(a,OUTPUT); //Alle benötigten Pins auf OUTPUT
   pinMode(b,OUTPUT);
   pinMode(c,OUTPUT);
@@ -68,22 +74,22 @@ void setup() {
   digitalWrite(c4,HIGH);
 
   setDisplay(8888); //Alle Segmente  an, zur prüfung
+  dht.begin();
+  messwert = messen();
   
 }
 
 void loop()
 {
-  if((timer_messen + 1000) < millis()) //Jede Sekunde Wert auslesen, Seriell ausgeben und in Variable speichern
+  if((timer_messen + 10000) < millis()) //Jede Sekunde Wert auslesen, Seriell ausgeben und in Variable speichern
   {
-    feuchtigkeit= analogRead(A0);
-    Serial.print("Feuchtigkeit: ");
-    Serial.print(analogRead(A0));
-    Serial.print("\n");
-    analogWrite(A1,(200));
+    if(messung == 't') messung = 'h';
+    else if(messung == 'h') messung = 't';
+    messwert = messen();
     timer_messen = millis();
   }
 
-  setDisplay(feuchtigkeit); //Feuchtigkeit ausgeben
+  setDisplay(messwert); //Feuchtigkeit ausgeben
 }
 
 
@@ -146,7 +152,46 @@ void setDisplay(int zahl)
 
   if(((timer_display + intervall) < micros()) && display_wo == 1) 
   {
+    if(messung == 't')
+    {
+      digitalWrite(c2,HIGH);
+      digitalWrite(c3,HIGH);
+      digitalWrite(c4,HIGH);
+      digitalWrite(c1,HIGH);
+
+      digitalWrite(a,HIGH);
+      digitalWrite(b,LOW);
+      digitalWrite(c,LOW);
+      digitalWrite(d,LOW);
+      digitalWrite(e,HIGH);
+      digitalWrite(f,HIGH);
+      digitalWrite(g,LOW);
+      digitalWrite(dot,HIGH);
+
+      digitalWrite(c1,LOW);
+    }
+    else if(messung == 'h')
+    {
+      digitalWrite(c2,HIGH);
+      digitalWrite(c3,HIGH);
+      digitalWrite(c4,HIGH);
+      digitalWrite(c1,HIGH);
+
+      digitalWrite(a,LOW);
+      digitalWrite(b,HIGH);
+      digitalWrite(c,HIGH);
+      digitalWrite(d,LOW);
+      digitalWrite(e,HIGH);
+      digitalWrite(f,HIGH);
+      digitalWrite(g,HIGH);
+      digitalWrite(dot,HIGH);
+
+      digitalWrite(c1,LOW);
+    }
+    else
+    {
     setDigit(c1,tausender,0);
+    }
     display_wo = 2;
   }
   else if(((timer_display + intervall*2) < micros()) && display_wo == 2)
@@ -165,4 +210,12 @@ void setDisplay(int zahl)
     display_wo = 1;
     timer_display = micros();
   }
+}
+
+int messen()
+{
+  if(messung =='t') return dht.readTemperature();
+  if(messung == 'h') return dht.readHumidity();
+
+  return 0;
 }
